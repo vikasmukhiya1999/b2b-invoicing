@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect } from 'react';
+import { createContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
 import { login, register, getCurrentUser } from '../utils/api';
@@ -21,11 +21,9 @@ export const AuthProvider = ({ children }) => {
           // Check if token is expired
           const currentTime = Date.now() / 1000;
           if (decodedToken.exp < currentTime) {
-            // Token expired
             localStorage.removeItem('token');
             setUser(null);
           } else {
-            // Get current user info
             const response = await getCurrentUser();
             setUser(response.data.user);
           }
@@ -42,17 +40,17 @@ export const AuthProvider = ({ children }) => {
     checkLoggedIn();
   }, []);
 
-  const updateUserKyc = (kycData) => {
+  const updateUserKyc = useCallback((kycData) => {
     if (user) {
-      setUser({
-        ...user,
+      setUser(prev => ({
+        ...prev,
         kycCompleted: true,
         kyc: kycData
-      });
+      }));
     }
-  };
+  }, [user]);
 
-  const loginUser = async (email, password) => {
+  const loginUser = useCallback(async (email, password) => {
     try {
       const response = await login({ email, password });
       const { token, user } = response.data;
@@ -77,9 +75,9 @@ export const AuthProvider = ({ children }) => {
         message: error.response?.data?.message || 'Login failed'
       };
     }
-  };
+  }, [navigate]);
 
-  const registerUser = async (userData) => {
+  const registerUser = useCallback(async (userData) => {
     try {
       const response = await register(userData);
       const { token, user } = response.data;
@@ -96,15 +94,15 @@ export const AuthProvider = ({ children }) => {
         message: error.response?.data?.message || 'Registration failed'
       };
     }
-  };
+  }, [navigate]);
 
-  const logoutUser = () => {
+  const logoutUser = useCallback(() => {
     localStorage.removeItem('token');
     setUser(null);
     navigate('/login');
-  };
+  }, [navigate]);
 
-  const value = {
+  const value = useMemo(() => ({
     user,
     loading,
     loginUser,
@@ -112,7 +110,7 @@ export const AuthProvider = ({ children }) => {
     logoutUser,
     updateUserKyc,
     isAuthenticated: !!user
-  };
+  }), [user, loading, loginUser, registerUser, logoutUser, updateUserKyc]);
 
   return (
     <AuthContext.Provider value={value}>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { getBuyerInvoices } from '../../utils/api';
 import {
@@ -27,7 +27,7 @@ const BuyerDashboard = () => {
     const fetchInvoices = async () => {
       try {
         const response = await getBuyerInvoices();
-        setInvoices(response.data); // Changed from response.data.invoices to response.data
+        setInvoices(response.data);
       } catch (err) {
         console.error('Error fetching invoices:', err);
         setError('Failed to fetch invoices. Please try again later.');
@@ -39,16 +39,24 @@ const BuyerDashboard = () => {
     fetchInvoices();
   }, []);
 
-  // Calculate dashboard statistics
-  const totalInvoices = invoices.length;
-  const pendingReview = invoices.filter(invoice => invoice.status === 'sent').length;
-  const approvedInvoices = invoices.filter(invoice => invoice.status === 'approved').length;
-  const totalAmount = invoices.reduce((sum, invoice) => sum + invoice.total, 0);
-  
-  // Get recent invoices (last 5)
-  const recentInvoices = [...invoices]
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .slice(0, 5);
+  // Memoize dashboard statistics
+  const {
+    totalInvoices,
+    pendingReview,
+    approvedInvoices,
+    totalAmount,
+    recentInvoices
+  } = useMemo(() => {
+    return {
+      totalInvoices: invoices.length,
+      pendingReview: invoices.filter(invoice => invoice.status === 'sent').length,
+      approvedInvoices: invoices.filter(invoice => invoice.status === 'approved').length,
+      totalAmount: invoices.reduce((sum, invoice) => sum + invoice.total, 0),
+      recentInvoices: [...invoices]
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .slice(0, 5)
+    };
+  }, [invoices]);
 
   // Function to format currency
   const formatCurrency = (amount) => {
@@ -226,81 +234,78 @@ const BuyerDashboard = () => {
         <div className="pb-5 border-b border-gray-200">
           <h3 className="text-lg leading-6 font-medium text-gray-900">Recent Invoices</h3>
         </div>
-        <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg mt-4">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Invoice #
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Seller
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Due Date
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Amount
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Created
-                </th>
-                <th scope="col" className="relative px-6 py-3">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {recentInvoices.length > 0 ? (
-                recentInvoices.map((invoice) => (
-                  <tr key={invoice._id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {invoice.invoiceNumber}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {invoice.seller.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(invoice.dueDate).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatCurrency(invoice.total)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColorMap[invoice.status]}`}>
-                        {invoice.status.replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(invoice.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link to={`/buyer/invoices/${invoice._id}`} className="text-blue-600 hover:text-blue-900">
-                        View
-                      </Link>
+        <div className="mt-4 -mx-4 sm:mx-0">
+          <div className="overflow-x-auto shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
+            <table className="min-w-full divide-y divide-gray-300">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
+                    Invoice #
+                  </th>
+                  <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 hidden sm:table-cell">
+                    Seller
+                  </th>
+                  <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 hidden sm:table-cell">
+                    Due Date
+                  </th>
+                  <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                    Amount
+                  </th>
+                  <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                    Status
+                  </th>
+                  <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 bg-white">
+                {recentInvoices.length > 0 ? (
+                  recentInvoices.map((invoice) => (
+                    <tr key={invoice._id} className="hover:bg-gray-50">
+                      <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
+                        {invoice.invoiceNumber}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 hidden sm:table-cell">
+                        {invoice.seller.name}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 hidden sm:table-cell">
+                        {new Date(invoice.dueDate).toLocaleDateString()}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900 font-medium">
+                        {formatCurrency(invoice.total)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColorMap[invoice.status]}`}>
+                          {invoice.status.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                        <Link to={`/buyer/invoices/${invoice._id}`} className="text-blue-600 hover:text-blue-900">
+                          View
+                        </Link>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-500">
+                      No invoices found.
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
-                    No invoices found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
         {invoices.length > 5 && (
           <div className="mt-4 text-right">
             <Link 
               to="/buyer/invoices" 
-              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+              className="text-sm font-medium text-blue-600 hover:text-blue-500 inline-flex items-center"
             >
-              View all invoices →
+              View all invoices
+              <ArrowLongRightIcon className="ml-1 h-4 w-4" />
             </Link>
           </div>
         )}
